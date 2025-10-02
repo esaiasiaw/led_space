@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import type { AnimationSettings, PlaybackState, ExportSettings } from '../types/animation';
+import type { AnimationSettings, PlaybackState, ExportSettings, AnimationVersion } from '../types/animation';
 
 interface AnimationStore {
   // Settings
@@ -21,6 +21,13 @@ interface AnimationStore {
   isExporting: boolean;
   exportProgress: number;
   setExporting: (isExporting: boolean, progress?: number) => void;
+
+  // Version management
+  versions: AnimationVersion[];
+  saveVersion: (name: string, thumbnail?: string, notes?: string) => void;
+  loadVersion: (id: string) => void;
+  deleteVersion: (id: string) => void;
+  renameVersion: (id: string, newName: string) => void;
 }
 
 const defaultSettings: AnimationSettings = {
@@ -110,7 +117,27 @@ const defaultExportSettings: ExportSettings = {
   format: 'png',
 };
 
-export const useAnimationStore = create<AnimationStore>((set) => ({
+// Load versions from localStorage
+const loadVersionsFromStorage = (): AnimationVersion[] => {
+  try {
+    const stored = localStorage.getItem('animation-versions');
+    return stored ? JSON.parse(stored) : [];
+  } catch (error) {
+    console.error('Failed to load versions from localStorage:', error);
+    return [];
+  }
+};
+
+// Save versions to localStorage
+const saveVersionsToStorage = (versions: AnimationVersion[]) => {
+  try {
+    localStorage.setItem('animation-versions', JSON.stringify(versions));
+  } catch (error) {
+    console.error('Failed to save versions to localStorage:', error);
+  }
+};
+
+export const useAnimationStore = create<AnimationStore>((set, get) => ({
   // Settings
   settings: defaultSettings,
   updateSettings: (updates) =>
@@ -140,4 +167,43 @@ export const useAnimationStore = create<AnimationStore>((set) => ({
   exportProgress: 0,
   setExporting: (isExporting, progress = 0) =>
     set({ isExporting, exportProgress: progress }),
+
+  // Version management
+  versions: loadVersionsFromStorage(),
+
+  saveVersion: (name, thumbnail, notes) => {
+    const newVersion: AnimationVersion = {
+      id: `version-${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
+      name,
+      timestamp: Date.now(),
+      settings: { ...get().settings },
+      thumbnail,
+      notes,
+    };
+
+    const updatedVersions = [newVersion, ...get().versions];
+    saveVersionsToStorage(updatedVersions);
+    set({ versions: updatedVersions });
+  },
+
+  loadVersion: (id) => {
+    const version = get().versions.find(v => v.id === id);
+    if (version) {
+      set({ settings: { ...version.settings } });
+    }
+  },
+
+  deleteVersion: (id) => {
+    const updatedVersions = get().versions.filter(v => v.id !== id);
+    saveVersionsToStorage(updatedVersions);
+    set({ versions: updatedVersions });
+  },
+
+  renameVersion: (id, newName) => {
+    const updatedVersions = get().versions.map(v =>
+      v.id === id ? { ...v, name: newName } : v
+    );
+    saveVersionsToStorage(updatedVersions);
+    set({ versions: updatedVersions });
+  },
 }));

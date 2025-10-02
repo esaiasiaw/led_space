@@ -1,4 +1,4 @@
-import { useRef, useEffect } from 'react';
+import { useRef, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { AnimationCanvas } from './components/AnimationCanvas';
 import { AnimationControls } from './components/AnimationControls';
@@ -8,7 +8,9 @@ import { ShaderControls } from './components/ShaderControls';
 import { ShaderOverlay } from './components/ShaderOverlay';
 import { LayersPanel } from './components/LayersPanel';
 import { Transport } from './components/Transport';
-import { Code } from 'lucide-react';
+import { VersionHistory } from './components/VersionHistory';
+import { SaveVersionDialog } from './components/SaveVersionDialog';
+import { Code, Save } from 'lucide-react';
 import { useAnimationStore } from './stores/animationStore';
 import { LEDAnimationEngine } from './animation/LEDAnimationEngine';
 
@@ -45,6 +47,7 @@ function App() {
   const canvasHostRef = useRef<HTMLDivElement>(null);
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const { settings, updateSettings, isCodeEditorOpen, toggleCodeEditor } = useAnimationStore();
+  const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
 
   useCanvasResizer(canvasRef, canvasHostRef, animationEngineRef);
 
@@ -58,6 +61,13 @@ function App() {
         </div>
         <div className="flex items-center gap-2">
           <button
+            onClick={() => setIsSaveDialogOpen(true)}
+            className="px-3 py-1.5 text-xs rounded-md bg-[var(--accent-primary)] text-white hover:bg-[var(--accent-primary)]/90 transition-all duration-[var(--duration-fast)] flex items-center gap-2"
+          >
+            <Save size={14} />
+            Save Version
+          </button>
+          <button
             onClick={() => toggleCodeEditor()}
             className="px-3 py-1.5 text-xs rounded-md bg-[var(--bg-tertiary)] border border-[var(--border-primary)] text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:border-[var(--border-secondary)] transition-all duration-[var(--duration-fast)] flex items-center gap-2"
           >
@@ -69,8 +79,13 @@ function App() {
 
       {/* Main Editor Layout */}
       <div className="flex-1 flex min-h-0">
-        {/* Left Panel - Layers & Media */}
+        {/* Left Panel - Version History & Layers & Media */}
         <aside className="w-80 bg-[var(--bg-secondary)] border-r border-[var(--border-primary)] flex flex-col flex-shrink-0">
+          {/* Version History Section */}
+          <div className="h-[35%] border-b border-[var(--border-primary)] overflow-hidden">
+            <VersionHistory />
+          </div>
+
           {/* Layers Section */}
           <div className="flex-1 min-h-0 border-b border-[var(--border-primary)]">
             <LayersPanel />
@@ -264,6 +279,13 @@ function App() {
           </motion.div>
         </motion.div>
       )}
+
+      {/* Save Version Dialog */}
+      <SaveVersionDialog
+        isOpen={isSaveDialogOpen}
+        onClose={() => setIsSaveDialogOpen(false)}
+        canvasRef={canvasRef}
+      />
     </div>
   );
 }

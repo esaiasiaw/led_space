@@ -128,3 +128,12 @@ export interface AnimationEngine {
   exportFrame(): string;
   exportSequence(settings: ExportSettings): Promise<string[]>;
 }
+
+export interface AnimationVersion {
+  id: string;
+  name: string;
+  timestamp: number;
+  settings: AnimationSettings;
+  thumbnail?: string;
+  notes?: string;
+}
