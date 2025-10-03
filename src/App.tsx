@@ -1,18 +1,17 @@
 import { useRef, useEffect, useState } from 'react';
 import { motion } from 'framer-motion';
 import { AnimationCanvas } from './components/AnimationCanvas';
-import { AnimationControls } from './components/AnimationControls';
 import { CodeEditor } from './components/CodeEditor';
 import { MediaUpload } from './components/MediaUpload';
-import { ShaderControls } from './components/ShaderControls';
-import { ShaderOverlay } from './components/ShaderOverlay';
 import { LayersPanel } from './components/LayersPanel';
 import { Transport } from './components/Transport';
 import { VersionHistory } from './components/VersionHistory';
 import { SaveVersionDialog } from './components/SaveVersionDialog';
+import { InspectorTabs } from './components/InspectorTabs';
 import { Code, Save } from 'lucide-react';
 import { useAnimationStore } from './stores/animationStore';
 import { LEDAnimationEngine } from './animation/LEDAnimationEngine';
+import { useInactivityDetector } from './hooks/useInactivityDetector';
 
 const useCanvasResizer = (canvasRef: React.RefObject<HTMLCanvasElement | null>, containerRef: React.RefObject<HTMLDivElement | null>, engineRef: React.RefObject<LEDAnimationEngine | undefined>) => {
   useEffect(() => {
@@ -50,6 +49,7 @@ function App() {
   const [isSaveDialogOpen, setIsSaveDialogOpen] = useState(false);
 
   useCanvasResizer(canvasRef, canvasHostRef, animationEngineRef);
+  useInactivityDetector();
 
   return (
     <div className="w-full h-screen bg-[var(--bg-primary)] text-[var(--text-primary)] flex flex-col overflow-hidden">
@@ -93,10 +93,10 @@ function App() {
 
           {/* Media & Patterns Section */}
           <div className="h-[45%] overflow-y-auto">
-            <div className="p-4 space-y-4">
+            <div className="p-2 space-y-3">
               {/* Media Upload */}
               <div>
-                <h4 className="section-title mb-3">Media</h4>
+                <h4 className="section-title mb-2">Media</h4>
                 <MediaUpload />
               </div>
 
@@ -105,11 +105,10 @@ function App() {
 
               {/* Pattern Selector */}
               <div>
-                <h4 className="section-title mb-3">Pattern</h4>
+                <h4 className="section-title mb-2">Pattern</h4>
                 <select
                   className="w-full px-3 py-2 bg-[var(--bg-tertiary)] border border-[var(--border-primary)] rounded-lg text-sm text-[var(--text-primary)] focus:outline-none focus:border-[var(--accent-primary)] transition-all duration-[var(--duration-fast)]"
                   value={
-                    settings.enableShaderPattern ? 'shader' :
                     settings.enableBuildDebuild ? 'buildDebuild' :
                     settings.enableSpiral ? 'spiral' :
                     settings.enableWave ? 'wave' :
@@ -122,7 +121,6 @@ function App() {
                   onChange={(e) => {
                     const pattern = e.target.value;
                     updateSettings({
-                      enableShaderPattern: pattern === 'shader',
                       enableBuildDebuild: pattern === 'buildDebuild',
                       enableSpiral: pattern === 'spiral',
                       enableWave: pattern === 'wave',
@@ -143,29 +141,23 @@ function App() {
                   <option value="scanner">Scanner</option>
                   <option value="sparkle">Sparkle</option>
                   <option value="radar">Radar</option>
-                  <option value="shader">Shader Dither</option>
                 </select>
 
-                {/* Pattern Speed - only for non-shader patterns */}
-                {!settings.enableShaderPattern && (
-                  <div className="mt-3">
-                    <div className="parameter-label">
-                      <label className="parameter-name">Speed</label>
-                      <span className="text-xs text-[var(--text-tertiary)] font-mono">{settings.patternSpeed.toFixed(1)}x</span>
-                    </div>
-                    <input
-                      type="range"
-                      min="0.1"
-                      max="3.0"
-                      step="0.1"
-                      value={settings.patternSpeed}
-                      onChange={(e) => updateSettings({ patternSpeed: parseFloat(e.target.value) })}
-                    />
+                {/* Pattern Speed */}
+                <div className="mt-3">
+                  <div className="parameter-label">
+                    <label className="parameter-name">Speed</label>
+                    <span className="text-xs text-[var(--text-tertiary)] font-mono">{settings.patternSpeed.toFixed(1)}x</span>
                   </div>
-                )}
-
-                {/* Shader Controls */}
-                <ShaderControls />
+                  <input
+                    type="range"
+                    min="0.1"
+                    max="3.0"
+                    step="0.1"
+                    value={settings.patternSpeed}
+                    onChange={(e) => updateSettings({ patternSpeed: parseFloat(e.target.value) })}
+                  />
+                </div>
               </div>
             </div>
           </div>
@@ -196,7 +188,6 @@ function App() {
                 {/* Canvas */}
                 <div className="relative overflow-hidden rounded-lg">
                   <AnimationCanvas ref={animationEngineRef} canvasRef={canvasRef} />
-                  <ShaderOverlay />
                 </div>
               </div>
             </motion.div>
@@ -245,12 +236,7 @@ function App() {
 
         {/* Right Inspector Panel */}
         <aside className="w-96 bg-[var(--bg-secondary)] border-l border-[var(--border-primary)] flex flex-col flex-shrink-0">
-          <div className="px-4 py-3 border-b border-[var(--border-primary)]">
-            <h3 className="section-title">Inspector</h3>
-          </div>
-          <div className="flex-1 overflow-y-auto">
-            <AnimationControls animationEngineRef={animationEngineRef} />
-          </div>
+          <InspectorTabs animationEngineRef={animationEngineRef} />
         </aside>
       </div>
 

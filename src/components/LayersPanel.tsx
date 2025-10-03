@@ -112,18 +112,6 @@ export const LayersPanel: React.FC = () => {
       });
     }
 
-    // Add shader layer if enabled
-    if (settings.enableShaderPattern) {
-      layers.push({
-        id: 'shader',
-        name: `Shader: ${settings.shaderShape}`,
-        type: 'shader',
-        icon: <Sparkles size={14} />,
-        color: '#3B82F6',
-        visible: true,
-      });
-    }
-
     // Add active pattern layer
     const activePattern = settings.enableBuildDebuild ? 'buildDebuild' :
       settings.enableSpiral ? 'spiral' :
@@ -158,9 +146,8 @@ export const LayersPanel: React.FC = () => {
 
     return layers;
   }, [settings.mediaUrl, settings.mediaType, settings.enableMediaMode, settings.displayMode,
-      settings.enableShaderPattern, settings.shaderShape, settings.enableBuildDebuild,
-      settings.enableSpiral, settings.enableWave, settings.enableRipple, settings.enablePulse,
-      settings.enableScanner, settings.enableSparkle, settings.enableRadar]);
+      settings.enableBuildDebuild, settings.enableSpiral, settings.enableWave, settings.enableRipple,
+      settings.enablePulse, settings.enableScanner, settings.enableSparkle, settings.enableRadar]);
 
   // Update layer order when base layers change
   useMemo(() => {
@@ -222,7 +209,7 @@ export const LayersPanel: React.FC = () => {
       </div>
 
       {/* Layers List */}
-      <div className="flex-1 overflow-y-auto p-3 space-y-2">
+      <div className="flex-1 overflow-y-auto p-2 space-y-1.5">
         {layers.length === 0 ? (
           <div className="flex flex-col items-center justify-center h-32 text-[var(--text-tertiary)] text-sm">
             <Layers size={24} className="mb-2 opacity-50" />

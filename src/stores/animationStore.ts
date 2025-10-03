@@ -28,6 +28,14 @@ interface AnimationStore {
   loadVersion: (id: string) => void;
   deleteVersion: (id: string) => void;
   renameVersion: (id: string, newName: string) => void;
+
+  // Performance mode
+  isPerformanceMode: boolean;
+  togglePerformanceMode: () => void;
+  inactivityTimeout: number;
+  setInactivityTimeout: (minutes: number) => void;
+  lastActivityTime: number;
+  updateActivity: () => void;
 }
 
 const defaultSettings: AnimationSettings = {
@@ -73,7 +81,8 @@ const defaultSettings: AnimationSettings = {
   flickerAmount: 0.2,
 
   // Post-processing
-  bloomStrength: 0,
+  enableBloom: false,
+  bloomStrength: 1.5,
   bloomRadius: 0.4,
   bloomThreshold: 0.85,
 
@@ -89,16 +98,6 @@ const defaultSettings: AnimationSettings = {
   ditherThreshold: 128,
   mediaContrast: 1.0,
   mediaBrightness: 1.0,
-
-  // Shader Patterns
-  enableShaderPattern: false,
-  shaderShape: 'sphere',
-  shaderType: '4x4',
-  shaderSpeed: 1.0,
-  shaderScale: 0.6,
-  shaderColorFront: '#00b2ff',
-  shaderColorBack: '#000000',
-  shaderSize: 2,
 };
 
 const defaultPlaybackState: PlaybackState = {
@@ -112,9 +111,10 @@ const defaultPlaybackState: PlaybackState = {
 };
 
 const defaultExportSettings: ExportSettings = {
-  fps: 30,
+  fps: 60,
   cycles: 1,
   format: 'png',
+  transparentBackground: false,
 };
 
 // Load versions from localStorage
@@ -205,5 +205,21 @@ export const useAnimationStore = create<AnimationStore>((set, get) => ({
     );
     saveVersionsToStorage(updatedVersions);
     set({ versions: updatedVersions });
+  },
+
+  // Performance mode
+  isPerformanceMode: false,
+  togglePerformanceMode: () => {
+    set((state) => ({ isPerformanceMode: !state.isPerformanceMode }));
+  },
+
+  inactivityTimeout: 5, // minutes
+  setInactivityTimeout: (minutes) => {
+    set({ inactivityTimeout: minutes });
+  },
+
+  lastActivityTime: Date.now(),
+  updateActivity: () => {
+    set({ lastActivityTime: Date.now() });
   },
 }));

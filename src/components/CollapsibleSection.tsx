@@ -45,7 +45,7 @@ export const CollapsibleSection: React.FC<CollapsibleSectionProps> = ({
             }}
             className="overflow-hidden"
           >
-            <div className="px-4 pb-4">
+            <div className="px-3 pb-2">
               {children}
             </div>
           </motion.div>

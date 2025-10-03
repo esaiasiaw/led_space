@@ -47,7 +47,7 @@ export function VersionHistory() {
 
   return (
     <div className="h-full flex flex-col bg-[var(--bg-primary)]">
-      <div className="p-3 border-b border-[var(--border-primary)]">
+      <div className="p-2 border-b border-[var(--border-primary)]">
         <h3 className="text-xs font-semibold text-[var(--text-primary)] uppercase tracking-wide">
           Version History
         </h3>
@@ -55,8 +55,8 @@ export function VersionHistory() {
 
       <div className="flex-1 overflow-y-auto custom-scrollbar">
         {versions.length === 0 ? (
-          <div className="p-4 text-center">
-            <Clock className="w-8 h-8 mx-auto mb-2 text-[var(--text-tertiary)] opacity-50" />
+          <div className="p-3 text-center">
+            <Clock className="w-7 h-7 mx-auto mb-1.5 text-[var(--text-tertiary)] opacity-50" />
             <p className="text-xs text-[var(--text-tertiary)]">
               No saved versions yet.
               <br />
@@ -64,16 +64,16 @@ export function VersionHistory() {
             </p>
           </div>
         ) : (
-          <div className="p-2 space-y-2">
+          <div className="p-1.5 space-y-1.5">
             {versions.map((version) => (
               <div
                 key={version.id}
-                className="group relative bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md p-3 hover:border-[var(--accent-primary)] transition-colors cursor-pointer"
+                className="group relative bg-[var(--bg-secondary)] border border-[var(--border-primary)] rounded-md p-2 hover:border-[var(--accent-primary)] transition-colors cursor-pointer"
                 onClick={() => loadVersion(version.id)}
               >
                 {/* Thumbnail */}
                 {version.thumbnail && (
-                  <div className="w-full h-20 mb-2 rounded bg-[var(--bg-tertiary)] overflow-hidden">
+                  <div className="w-full h-16 mb-1.5 rounded bg-[var(--bg-tertiary)] overflow-hidden">
                     <img
                       src={version.thumbnail}
                       alt={version.name}

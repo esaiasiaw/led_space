@@ -13,6 +13,11 @@ export class LEDAnimationEngine implements AnimationEngine {
   private bloomPass: UnrealBloomPass;
   private ledMeshes: THREE.Mesh[][] = [];
   private bgMeshes: THREE.Mesh[][] = [];
+
+  // Shared geometries and materials pool for better performance
+  private sharedLEDGeometry: THREE.CircleGeometry | null = null;
+  private sharedBGGeometry: THREE.CircleGeometry | null = null;
+  private sharedBGMaterial: THREE.MeshBasicMaterial | null = null;
   private animationId: number | null = null;
 
   public ledGrid: LEDState[][] = [];
@@ -46,7 +51,7 @@ export class LEDAnimationEngine implements AnimationEngine {
       canvas,
       antialias: true,
       alpha: true,
-      powerPreference: 'high-performance',
+      powerPreference: 'default', // Use integrated GPU to reduce heat/battery usage
       preserveDrawingBuffer: false, // Disable for better performance (enable only during export)
       stencil: false, // Not needed for this use case
       depth: true
@@ -162,10 +167,11 @@ export class LEDAnimationEngine implements AnimationEngine {
   }
 
   private createLEDMeshes(): void {
-    // Clear existing LED meshes
+    // Clear existing LED meshes (only dispose if materials are unique)
     this.ledMeshes.forEach(row => {
       row.forEach(mesh => {
         this.scene.remove(mesh);
+        (mesh.material as THREE.Material).dispose();
       });
     });
     this.ledMeshes = [];
@@ -178,37 +184,44 @@ export class LEDAnimationEngine implements AnimationEngine {
     });
     this.bgMeshes = [];
 
-    // Create shared geometry (reuse for all LEDs for better performance)
-    const geometry = new THREE.CircleGeometry(3, 16); // Reduced to 16 segments for performance
-    const backgroundGeometry = new THREE.CircleGeometry(1.5, 16);
+    // Create or reuse shared geometries
+    if (!this.sharedLEDGeometry) {
+      this.sharedLEDGeometry = new THREE.CircleGeometry(3, 12);
+    }
+    if (!this.sharedBGGeometry) {
+      this.sharedBGGeometry = new THREE.CircleGeometry(1.5, 12);
+    }
+    if (!this.sharedBGMaterial) {
+      this.sharedBGMaterial = new THREE.MeshBasicMaterial({
+        color: 0x191919,
+        transparent: true,
+        opacity: 0.3,
+      });
+    }
 
+    // Fast mesh creation using pooled resources
     for (let row = 0; row < this.settings.gridSize; row++) {
       this.ledMeshes[row] = [];
       this.bgMeshes[row] = [];
       for (let col = 0; col < this.settings.gridSize; col++) {
         const led = this.ledGrid[row][col];
 
-        // Create main LED material
+        // Create individual LED material (needed for individual colors)
         const material = new THREE.MeshBasicMaterial({
           color: new THREE.Color(this.settings.ledColor),
           transparent: true,
           opacity: 0,
         });
 
-        // Create LED mesh
-        const mesh = new THREE.Mesh(geometry, material);
-        mesh.position.set(led.x, -led.y, 0); // Flip Y for screen coordinates
+        // Create LED mesh with shared geometry
+        const mesh = new THREE.Mesh(this.sharedLEDGeometry, material);
+        mesh.position.set(led.x, -led.y, 0);
         this.scene.add(mesh);
         this.ledMeshes[row][col] = mesh;
 
-        // Create background LED if enabled
+        // Create background LED if enabled (share geometry AND material)
         if (this.settings.showBackground) {
-          const bgMaterial = new THREE.MeshBasicMaterial({
-            color: 0x191919,
-            transparent: true,
-            opacity: 0.3,
-          });
-          const bgMesh = new THREE.Mesh(backgroundGeometry, bgMaterial);
+          const bgMesh = new THREE.Mesh(this.sharedBGGeometry, this.sharedBGMaterial);
           bgMesh.position.set(led.x, -led.y, -0.1);
           this.scene.add(bgMesh);
           this.bgMeshes[row][col] = bgMesh;
@@ -217,10 +230,22 @@ export class LEDAnimationEngine implements AnimationEngine {
     }
   }
 
+  private lastFrameTime = 0;
+  private targetFPS = 60;
+  private frameInterval = 1000 / this.targetFPS;
+
   private animate = (): void => {
     this.animationId = requestAnimationFrame(this.animate);
-    this.updateAnimation();
-    this.render();
+
+    // Throttle to 60fps to reduce CPU/GPU load
+    const now = performance.now();
+    const delta = now - this.lastFrameTime;
+
+    if (delta >= this.frameInterval) {
+      this.lastFrameTime = now - (delta % this.frameInterval);
+      this.updateAnimation();
+      this.render();
+    }
   };
 
   public updateAnimation(): void {
@@ -384,22 +409,24 @@ export class LEDAnimationEngine implements AnimationEngine {
   }
 
   private collectPulsePoints(): void {
-    // Concentric pulse rings expanding from center
-    const pulseTime = this.playbackState.currentTime * 0.005 * this.settings.patternSpeed;
-    const numPulses = 4;
+    // Concentric pulse rings expanding from center - continuous loop
+    const pulseTime = (Date.now() * 0.001 * this.settings.patternSpeed) / 2; // Independent of animation duration
+    const numPulses = 5; // More pulses for smoother effect
 
     for (let i = 0; i < numPulses; i++) {
       const pulseOffset = (i / numPulses);
-      const pulseProgress = ((pulseTime + pulseOffset) % 1);
+      const pulseProgress = ((pulseTime + pulseOffset) % 1); // Loop 0 to 1 continuously
       const radius = this.settings.innerRadius +
                      pulseProgress * (this.settings.outerRadius - this.settings.innerRadius);
-      const brightness = (1 - pulseProgress) * 255;
 
-      if (brightness > 20) {
-        for (let angle = 0; angle < Math.PI * 2; angle += 0.15) {
+      // Smoother brightness fade
+      const brightness = Math.pow(1 - pulseProgress, 2) * 255;
+
+      if (brightness > 10) {
+        for (let angle = 0; angle < Math.PI * 2; angle += 0.12) {
           const x = Math.cos(angle) * radius;
           const y = Math.sin(angle) * radius;
-          const z = 0;
+          const z = Math.sin(pulseProgress * Math.PI) * 5; // Add slight z movement
 
           this.animatedPoints.push({
             x, y, z,
@@ -429,10 +456,10 @@ export class LEDAnimationEngine implements AnimationEngine {
       });
     }
 
-    // Trail effect
-    for (let i = 1; i <= 3; i++) {
-      const trailAngle = scanAngle - (i * 0.2);
-      const trailBrightness = 255 - (i * 70);
+    // Trail effect - shortened for more dynamic feel
+    for (let i = 1; i <= 2; i++) {
+      const trailAngle = scanAngle - (i * 0.15);
+      const trailBrightness = 255 - (i * 90);
 
       for (let radius = this.settings.innerRadius; radius <= this.settings.outerRadius; radius += 4) {
         const x = Math.cos(trailAngle) * radius;
@@ -449,28 +476,39 @@ export class LEDAnimationEngine implements AnimationEngine {
   }
 
   private collectSparklePoints(): void {
-    // Random twinkling points
-    const sparkleTime = this.playbackState.currentTime * 0.01;
-    const numSparkles = 30;
+    const sparkleTime = this.playbackState.currentTime * 0.01 * this.settings.patternSpeed;
+    const numSparkles = 50; // More sparkles
 
     for (let i = 0; i < numSparkles; i++) {
       // Use deterministic random based on time and index
-      const seed = i * 123.456 + Math.floor(sparkleTime / 500) * 789.012;
-      const pseudoRandom = (Math.sin(seed) * 10000) % 1;
-      const pseudoRandom2 = (Math.cos(seed * 1.234) * 10000) % 1;
+      const seed = i * 123.456 + Math.floor(sparkleTime / 300) * 789.012; // Faster changes
+      const pseudoRandom = Math.abs((Math.sin(seed) * 10000) % 1);
+      const pseudoRandom2 = Math.abs((Math.cos(seed * 1.234) * 10000) % 1);
+      const pseudoRandom3 = Math.abs((Math.sin(seed * 2.345) * 10000) % 1);
 
-      const angle = pseudoRandom * Math.PI * 2;
-      const radius = this.settings.innerRadius +
-                     pseudoRandom2 * (this.settings.outerRadius - this.settings.innerRadius);
+      // Animated angle - rotate slowly over time
+      const baseAngle = pseudoRandom * Math.PI * 2;
+      const angleSpeed = (pseudoRandom3 - 0.5) * 0.3; // Some rotate clockwise, some counter-clockwise
+      const angle = baseAngle + sparkleTime * angleSpeed;
 
-      // Brightness flicker
-      const flicker = (Math.sin(sparkleTime * 2 + i * 0.5) * 0.5 + 0.5);
+      // Animated radius - pulse in and out
+      const baseRadius = this.settings.innerRadius +
+                         pseudoRandom2 * (this.settings.outerRadius - this.settings.innerRadius);
+      const radiusPulse = Math.sin(sparkleTime * 0.8 + i * 0.3) * 8; // Pulse +/- 8 units
+      const radius = baseRadius + radiusPulse;
+
+      // More dynamic brightness with sharp peaks
+      const flickerSpeed = 3 + pseudoRandom3 * 5; // Variable speed per sparkle
+      const flicker = Math.pow(Math.abs(Math.sin(sparkleTime * flickerSpeed + i * 0.8)), 3); // Sharp peaks
       const brightness = flicker * 255;
 
-      if (brightness > 50) {
+      // Lower threshold for more visible sparkles
+      if (brightness > 20) {
         const x = Math.cos(angle) * radius;
         const y = Math.sin(angle) * radius;
-        const z = 0;
+
+        // Add slight z variation for depth with animation
+        const z = Math.sin(sparkleTime * 0.5 + i) * 8;
 
         this.animatedPoints.push({
           x, y, z,
@@ -479,15 +517,48 @@ export class LEDAnimationEngine implements AnimationEngine {
         });
       }
     }
+
+    // Add occasional shooting stars
+    const numShootingStars = 3;
+    for (let i = 0; i < numShootingStars; i++) {
+      const starSeed = i * 456.789 + Math.floor(sparkleTime / 800) * 234.567;
+      const starRandom = Math.abs((Math.sin(starSeed) * 10000) % 1);
+      const starPhase = (sparkleTime / 800) % 1;
+
+      if (starRandom > 0.7) { // Only sometimes visible
+        const startAngle = starRandom * Math.PI * 2;
+        const startRadius = this.settings.innerRadius;
+        const endRadius = this.settings.outerRadius;
+
+        // Trail of points - shorter and sharper
+        for (let t = 0; t < 5; t++) {
+          const progress = starPhase + (t * 0.12);
+          if (progress < 1) {
+            const currentRadius = startRadius + progress * (endRadius - startRadius);
+            const x = Math.cos(startAngle) * currentRadius;
+            const y = Math.sin(startAngle) * currentRadius;
+            const trailBrightness = (1 - progress) * (255 - t * 50); // Faster fade
+
+            if (trailBrightness > 0) {
+              this.animatedPoints.push({
+                x, y, z: 0,
+                brightness: trailBrightness,
+                source: 'sparkle',
+              });
+            }
+          }
+        }
+      }
+    }
   }
 
   private collectRadarPoints(): void {
-    // Sweeping radar effect with fade trail
+    // Real radar effect: rotating sweep arm + expanding pulse rings
     const radarTime = this.playbackState.currentTime * 0.002 * this.settings.patternSpeed;
     const radarAngle = (radarTime % 1) * Math.PI * 2;
 
-    // Main radar sweep arm
-    for (let radius = this.settings.innerRadius; radius <= this.settings.outerRadius; radius += 2) {
+    // Main radar sweep arm (thin bright line)
+    for (let radius = this.settings.innerRadius; radius <= this.settings.outerRadius; radius += 3) {
       const x = Math.cos(radarAngle) * radius;
       const y = Math.sin(radarAngle) * radius;
       const z = 0;
@@ -499,14 +570,39 @@ export class LEDAnimationEngine implements AnimationEngine {
       });
     }
 
-    // Fading trail
-    const trailLength = 15;
+    // Expanding pulse rings that emanate from the sweep
+    const numPulses = 3;
+    for (let i = 0; i < numPulses; i++) {
+      const pulseAge = (radarTime * 2 + i * 0.33) % 1; // Each pulse triggers at different times
+      const pulseRadius = this.settings.innerRadius + pulseAge * (this.settings.outerRadius - this.settings.innerRadius);
+      const pulseBrightness = Math.pow(1 - pulseAge, 2) * 200; // Fade out as it expands
+
+      if (pulseBrightness > 10) {
+        // Draw the pulse ring
+        const numPoints = 40;
+        for (let j = 0; j < numPoints; j++) {
+          const angle = (j / numPoints) * Math.PI * 2;
+          const x = Math.cos(angle) * pulseRadius;
+          const y = Math.sin(angle) * pulseRadius;
+          const z = 0;
+
+          this.animatedPoints.push({
+            x, y, z,
+            brightness: pulseBrightness,
+            source: 'radar',
+          });
+        }
+      }
+    }
+
+    // Fading trail behind the sweep arm - shorter and snappier
+    const trailLength = 6;
     for (let i = 1; i < trailLength; i++) {
       const trailAngle = radarAngle - (i * 0.15);
-      const fadeBrightness = 255 * (1 - i / trailLength);
+      const fadeBrightness = 200 * Math.pow(1 - i / trailLength, 2.5);
 
-      if (fadeBrightness > 20) {
-        for (let radius = this.settings.innerRadius; radius <= this.settings.outerRadius; radius += 4) {
+      if (fadeBrightness > 15) {
+        for (let radius = this.settings.innerRadius; radius <= this.settings.outerRadius; radius += 6) {
           const x = Math.cos(trailAngle) * radius;
           const y = Math.sin(trailAngle) * radius;
           const z = 0;
@@ -832,8 +928,12 @@ export class LEDAnimationEngine implements AnimationEngine {
       }
     }
 
-    // Render with bloom post-processing
-    this.composer.render();
+    // Render with or without bloom post-processing
+    if (this.settings.enableBloom) {
+      this.composer.render();
+    } else {
+      this.renderer.render(this.scene, this.camera);
+    }
   }
 
   // Control methods
@@ -868,11 +968,16 @@ export class LEDAnimationEngine implements AnimationEngine {
     const frames: string[] = [];
     const totalDuration = this.settings.animationDuration * 2 * settings.cycles;
     const totalFrames = Math.floor((totalDuration / 1000) * settings.fps);
-    // const frameDelay = 1000 / settings.fps; // Not used
 
     const originalPlaying = this.playbackState.isPlaying;
     const originalTime = this.playbackState.currentTime;
     const originalStartTime = this.playbackState.startTime;
+    const originalClearAlpha = this.renderer.getClearAlpha();
+
+    // If transparent background is requested, set alpha to 0
+    if (settings.transparentBackground) {
+      this.renderer.setClearColor(0x000000, 0);
+    }
 
     this.playbackState.isPlaying = false;
     this.playbackState.startTime = Date.now();
@@ -893,6 +998,11 @@ export class LEDAnimationEngine implements AnimationEngine {
     this.playbackState.isPlaying = originalPlaying;
     this.playbackState.startTime = originalStartTime;
     this.playbackState.currentTime = originalTime;
+
+    // Restore original clear color
+    if (settings.transparentBackground) {
+      this.renderer.setClearColor(new THREE.Color(this.settings.canvasBackgroundColor), originalClearAlpha);
+    }
 
     return frames;
   }
@@ -963,8 +1073,8 @@ export class LEDAnimationEngine implements AnimationEngine {
       this.processMediaFrame();
     }
 
-    // Recreate grid and shapes if necessary
-    if (newSettings.gridSize || newSettings.ledSpacing || newSettings.showBackground !== undefined) {
+    // Live grid recreation (optimized with pooled geometries)
+    if (newSettings.gridSize !== undefined || newSettings.ledSpacing !== undefined || newSettings.showBackground !== undefined) {
       this.createLEDGrid();
       this.createLEDMeshes();
       // Reprocess media with new grid size
@@ -973,7 +1083,8 @@ export class LEDAnimationEngine implements AnimationEngine {
       }
     }
 
-    if (newSettings.innerRadius || newSettings.outerRadius) {
+    // Live shape recreation
+    if (newSettings.innerRadius !== undefined || newSettings.outerRadius !== undefined) {
       this.createPulsingShape();
     }
   }

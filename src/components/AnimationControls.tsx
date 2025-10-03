@@ -3,13 +3,16 @@ import { ParameterControl } from './ParameterControl';
 import { Switch } from './ui/Switch';
 import { Button } from './ui/Button';
 import { ExportControls } from './ExportControls';
+import { PerformanceSettings } from './PerformanceSettings';
+import { CollapsibleSection } from './CollapsibleSection';
 import { useAnimationStore } from '../stores/animationStore';
 
 interface AnimationControlsProps {
   animationEngineRef: React.RefObject<any>;
+  showExport?: boolean;
 }
 
-export const AnimationControls: React.FC<AnimationControlsProps> = React.memo(({ animationEngineRef }) => {
+export const AnimationControls: React.FC<AnimationControlsProps> = React.memo(({ animationEngineRef, showExport = true }) => {
   const { settings, updateSettings, toggleCodeEditor, isCodeEditorOpen } = useAnimationStore();
 
   // Memoize callbacks to prevent unnecessary re-renders
@@ -35,14 +38,8 @@ export const AnimationControls: React.FC<AnimationControlsProps> = React.memo(({
 
   return (
     <div className="h-full overflow-y-auto p-4">
-      <div className="mb-5">
-        <h2 className="text-red-400 text-base font-semibold m-0">Animation Controls</h2>
-      </div>
-
       {/* Basic Settings */}
       <div className="mb-5 pb-4 border-b-half border-[#2a2d35]">
-        <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">Basic Settings</h3>
-
         <ParameterControl
           label="Duration (ms)"
           value={settings.animationDuration}
@@ -166,7 +163,7 @@ export const AnimationControls: React.FC<AnimationControlsProps> = React.memo(({
       <div className="mb-5 pb-4 border-b-half border-[#2a2d35]">
         <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">3D Rotation</h3>
 
-        <div className={`flex items-center py-2 px-3 rounded transition-colors mb-2 ${settings.enableYAxisRotate ? 'bg-cyan-600/20 ring-1 ring-cyan-600/50' : 'hover:bg-[#2a2d35]'}`}>
+        <div className={`flex items-center py-2 px-3 rounded transition-colors mb-3 ${settings.enableYAxisRotate ? 'bg-cyan-600/20 ring-1 ring-cyan-600/50' : 'hover:bg-[#2a2d35]'}`}>
           <Switch
             checked={settings.enableYAxisRotate}
             onCheckedChange={(checked) => updateSettings({ enableYAxisRotate: checked })}
@@ -189,7 +186,7 @@ export const AnimationControls: React.FC<AnimationControlsProps> = React.memo(({
       <div className="mb-5 pb-4 border-b-half border-[#2a2d35]">
         <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">Shape Distortion</h3>
 
-        <div className={`flex items-center py-2 px-3 rounded transition-colors mb-2 ${settings.enableMorphing ? 'bg-purple-600/20 ring-1 ring-purple-600/50' : 'hover:bg-[#2a2d35]'}`}>
+        <div className={`flex items-center py-2 px-3 rounded transition-colors mb-3 ${settings.enableMorphing ? 'bg-purple-600/20 ring-1 ring-purple-600/50' : 'hover:bg-[#2a2d35]'}`}>
           <Switch
             checked={settings.enableMorphing}
             onCheckedChange={(checked) => updateSettings({ enableMorphing: checked })}
@@ -230,7 +227,7 @@ export const AnimationControls: React.FC<AnimationControlsProps> = React.memo(({
       <div className="mb-5 pb-4 border-b-half border-[#2a2d35]">
         <h3 className="text-gray-400 text-xs font-semibold uppercase tracking-wider mb-3">Visual Effects</h3>
 
-        <div className={`flex items-center py-2 px-3 rounded transition-colors mb-2 ${settings.enableFlicker ? 'bg-pink-600/20 ring-1 ring-pink-600/50' : 'hover:bg-[#2a2d35]'}`}>
+        <div className={`flex items-center py-2 px-3 rounded transition-colors mb-3 ${settings.enableFlicker ? 'bg-pink-600/20 ring-1 ring-pink-600/50' : 'hover:bg-[#2a2d35]'}`}>
           <Switch
             checked={settings.enableFlicker}
             onCheckedChange={(checked) => updateSettings({ enableFlicker: checked })}
@@ -248,32 +245,50 @@ export const AnimationControls: React.FC<AnimationControlsProps> = React.memo(({
           onChange={(value) => updateSettings({ flickerAmount: value })}
         />
 
-        <ParameterControl
-          label="Bloom Strength"
-          value={settings.bloomStrength}
-          min={0}
-          max={3}
-          step={0.1}
-          onChange={(value) => updateSettings({ bloomStrength: value })}
-        />
+        <div className={`flex items-center justify-between py-2 px-3 rounded transition-colors mb-3 ${settings.enableBloom ? 'bg-orange-600/20 ring-1 ring-orange-600/50' : 'hover:bg-[#2a2d35]'}`}>
+          <div className="flex items-center">
+            <Switch
+              checked={settings.enableBloom}
+              onCheckedChange={(checked) => updateSettings({ enableBloom: checked })}
+              className="mr-2"
+            />
+            <span className="parameter-name text-sm">Bloom</span>
+          </div>
+          <span className="text-[10px] text-yellow-400/80 font-medium uppercase tracking-wide">
+            High GPU
+          </span>
+        </div>
 
-        <ParameterControl
-          label="Bloom Radius"
-          value={settings.bloomRadius}
-          min={0}
-          max={1}
-          step={0.05}
-          onChange={(value) => updateSettings({ bloomRadius: value })}
-        />
+        {settings.enableBloom && (
+          <>
+            <ParameterControl
+              label="Bloom Strength"
+              value={settings.bloomStrength}
+              min={0}
+              max={3}
+              step={0.1}
+              onChange={(value) => updateSettings({ bloomStrength: value })}
+            />
 
-        <ParameterControl
-          label="Bloom Threshold"
-          value={settings.bloomThreshold}
-          min={0}
-          max={1}
-          step={0.05}
-          onChange={(value) => updateSettings({ bloomThreshold: value })}
-        />
+            <ParameterControl
+              label="Bloom Radius"
+              value={settings.bloomRadius}
+              min={0}
+              max={1}
+              step={0.05}
+              onChange={(value) => updateSettings({ bloomRadius: value })}
+            />
+
+            <ParameterControl
+              label="Bloom Threshold"
+              value={settings.bloomThreshold}
+              min={0}
+              max={1}
+              step={0.05}
+              onChange={(value) => updateSettings({ bloomThreshold: value })}
+            />
+          </>
+        )}
       </div>
 
       {/* Media Dithering Controls */}
@@ -310,27 +325,8 @@ export const AnimationControls: React.FC<AnimationControlsProps> = React.memo(({
         </div>
       )}
 
-      {/* Export Controls */}
-      <ExportControls animationEngineRef={animationEngineRef} />
-
-      {/* Info Section */}
-      <div className="bg-surface p-3 rounded mt-3 text-sm leading-relaxed">
-        <h3 className="text-accent text-sm font-medium mb-1">Advanced LED Animation Studio</h3>
-        <p className="mb-1 text-xs">Multiple animation patterns with real-time controls:</p>
-        <ul className="list-disc list-inside space-y-0.5 text-xs">
-          <li><strong>Build-Debuild:</strong> Pulse expansion and contraction</li>
-          <li><strong>Spiral:</strong> Rotating spiral arms with trails</li>
-          <li><strong>Wave:</strong> Concentric wave ripples</li>
-          <li><strong>Ripple:</strong> Dynamic radius pulsing</li>
-          <li><strong>3D Y-Axis Rotation:</strong> Full 3D rotation of entire animation</li>
-          <li><strong>Z-Axis Rotation:</strong> 2D planar rotation</li>
-          <li><strong>Morphing:</strong> Dynamic shape deformation</li>
-          <li><strong>Color Cycling:</strong> Smooth color transitions</li>
-        </ul>
-        <p className="mt-1.5 text-xs text-muted">
-          <strong>Shortcuts:</strong> Space=Play/Pause, R=Reset, G=Toggle Background, B=Reverse, 1-4=Toggle Patterns, C=Color Cycling
-        </p>
-      </div>
+      {/* Export Controls - only show if not in tab mode */}
+      {showExport && <ExportControls animationEngineRef={animationEngineRef} />}
     </div>
   );
 });

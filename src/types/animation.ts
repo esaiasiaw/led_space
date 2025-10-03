@@ -63,6 +63,7 @@ export interface AnimationSettings {
   flickerAmount: number;
 
   // Post-processing
+  enableBloom: boolean;
   bloomStrength: number;
   bloomRadius: number;
   bloomThreshold: number;
@@ -79,16 +80,6 @@ export interface AnimationSettings {
   ditherThreshold: number;
   mediaContrast: number;
   mediaBrightness: number;
-
-  // Shader Patterns
-  enableShaderPattern: boolean;
-  shaderShape: 'simplex' | 'warp' | 'dots' | 'wave' | 'ripple' | 'swirl' | 'sphere';
-  shaderType: 'random' | '2x2' | '4x4' | '8x8';
-  shaderSpeed: number;
-  shaderScale: number;
-  shaderColorFront: string;
-  shaderColorBack: string;
-  shaderSize: number;
 }
 
 export interface PlaybackState {
@@ -105,6 +96,7 @@ export interface ExportSettings {
   fps: number;
   cycles: number;
   format: 'png' | 'lottie' | 'data' | 'svg';
+  transparentBackground: boolean;
 }
 
 export interface AnimationEngine {
